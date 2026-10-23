@@ -1,4 +1,47 @@
+.dot-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.corner-button {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.corner-button:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.corner-button[aria-expanded='true'] {
+  color: var(--accent);
+  border-color: rgba(94, 219, 138, 0.4);
+}
+
+.corner-button svg {
+  width: 20px;
+  height: 20px;
+}
+
 .app {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   max-width: 520px;
   margin: 0 auto;
@@ -36,7 +79,7 @@
   width: 220px;
   height: 220px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(230, 185, 128, 0.35), rgba(230, 185, 128, 0) 70%);
+  background: radial-gradient(circle, rgba(94, 219, 138, 0.22), rgba(94, 219, 138, 0) 70%);
   transform: scale(0.8);
   opacity: 0.5;
   pointer-events: none;
@@ -109,6 +152,7 @@
 
 .now-playing {
   min-height: 64px;
+  text-shadow: 0 0 12px var(--bg), 0 0 4px var(--bg);
 }
 
 .now-playing h2 {
@@ -172,31 +216,138 @@
   cursor: default;
 }
 
-/* Mixer */
+/* Mixer: tucked away until "Sounds" is pressed. It keeps its space while
+   hidden so opening it never shifts the rest of the page. */
+
+.mixer-drawer {
+  width: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(16px) scale(0.98);
+  transition:
+    opacity 0.35s ease,
+    transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 0.5s;
+}
+
+.mixer-drawer.open {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.35s ease,
+    transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s;
+}
 
 .mixer {
   width: 100%;
   display: grid;
-  gap: 14px;
-  padding: 20px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  gap: 16px;
+  padding: 26px 26px 22px;
+  text-align: left;
 }
 
-.mixer label {
-  display: grid;
-  grid-template-columns: 64px 1fr;
-  align-items: center;
-  gap: 12px;
-  text-align: left;
+.mixer-header {
+  margin-bottom: 6px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #062312;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.mixer-header h3 {
+  margin: 14px 0 0;
+  font-size: 1.35rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.mixer-header p {
+  margin: 4px 0 0;
   font-size: 0.9rem;
   color: var(--text-dim);
 }
 
-.mixer input[type='range'] {
+/* Sliders, Apple style: a thin capsule filled up to the level, with a
+   small white ball as the handle. */
+
+.slider {
+  display: grid;
+  grid-template-columns: 62px 1fr 30px;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.88rem;
+  color: var(--text-dim);
+}
+
+.slider-value {
+  text-align: right;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.slider input[type='range'] {
+  --fill: rgba(255, 255, 255, 0.85);
+  --rest: rgba(255, 255, 255, 0.12);
   width: 100%;
-  accent-color: var(--accent);
+  height: 24px;
+  margin: 0;
+  background: transparent;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.slider input[type='range']::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--fill) var(--value), var(--rest) var(--value));
+}
+
+.slider input[type='range']::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--fill) var(--value), var(--rest) var(--value));
+}
+
+.slider input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px; /* centers the ball on the 6px track */
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.slider input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+.slider:hover .slider-label,
+.slider:focus-within .slider-label {
+  color: var(--text);
+}
+
+.slider input[type='range']:focus-visible {
+  outline: 2px solid rgba(94, 219, 138, 0.6);
+  outline-offset: 2px;
+  border-radius: 999px;
 }
 
 .credits {

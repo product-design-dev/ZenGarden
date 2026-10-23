@@ -89,6 +89,25 @@ class ZenEngine {
     return () => this.listeners.delete(fn)
   }
   getState = () => this.state
+
+  // Beat events let visuals react to exactly what the music is playing.
+  // They fire on the animation frame closest to when each sound is heard.
+  beatListeners = new Set()
+  onBeat = (fn) => {
+    this.beatListeners.add(fn)
+    return () => this.beatListeners.delete(fn)
+  }
+  beat(type, time, data = {}) {
+    Tone.getDraw().schedule(() => this.beatListeners.forEach((fn) => fn(type, data)), time)
+  }
+
+  // UI state must never be dropped (Tone's Draw skips late frames), so use a timer.
+  setAt(time, patch) {
+    setTimeout(() => this.set(patch), Math.max(0, (time - Tone.now()) * 1000))
+  }
+
+  // Smoothed loudness of the music (0 to ~1), for continuous motion.
+  getLevel = () => (this.state.status === 'playing' && this.meter ? Math.min(1, this.meter.getValue() * 4) : 0)
   set(patch) {
     this.state = { ...this.state, ...patch }
     this.listeners.forEach((fn) => fn())
@@ -152,6 +171,8 @@ class ZenEngine {
     this.toneFilter = new Tone.Filter({ type: 'lowpass', frequency: 3800, rolloff: -12, Q: 0.4 })
     const musicLevel = new Tone.Gain(0)
     this.musicBus.chain(this.toneFilter, new Tone.Vibrato({ frequency: 0.45, depth: 0.06 }), musicLevel, this.master)
+    this.meter = new Tone.Meter({ normalRange: true, smoothing: 0.85 })
+    musicLevel.connect(this.meter)
     this.reverb = new Tone.Reverb({ decay: 6, preDelay: 0.03, wet: 1 })
     this.reverb.connect(this.musicBus)
 
@@ -326,8 +347,9 @@ class ZenEngine {
     this.toneFilter.frequency.setValueAtTime(700, time)
     this.toneFilter.frequency.exponentialRampToValueAtTime(config.brightness, time + 6)
     this.bell.triggerAttackRelease(toNote(60 + keyPc), 4, time, 0.6)
+    this.beat('track', time)
 
-    Tone.getDraw().schedule(() => this.set({ track: { name: t.name, keyName: t.keyName, bpm: t.bpm, mood } }), time)
+    this.setAt(time, { track: { name: t.name, keyName: t.keyName, bpm: t.bpm, mood } })
   }
 
   onBar(time) {
@@ -348,7 +370,10 @@ class ZenEngine {
 
     if (this.sectionBar === 0 && section.fadeOut) this.musicBus.gain.rampTo(0.3, barDur * section.bars, time)
 
-    if (chordStart) this.voicing = voiceChord(chord, this.voicing)
+    if (chordStart) {
+      this.voicing = voiceChord(chord, this.voicing)
+      this.beat('chord', time)
+    }
     const voicing = this.voicing
 
     if (section.keys) {
@@ -367,6 +392,7 @@ class ZenEngine {
       for (const step of steps.sort((a, b) => a - b)) {
         const note = pick(voicing) + 12
         this.piano.triggerAttackRelease(toNote(note), 8 * s16, at(step) + jitter(), rand(0.32, 0.48))
+        this.beat('note', at(step), { pitch: (note - 48) / 40 })
       }
     }
 
@@ -388,7 +414,7 @@ class ZenEngine {
     if (section.drums) this.playDrums(section, at, jitter)
     if (section.melody) this.playMelody(section, chord, at, s16, jitter)
 
-    Tone.getDraw().schedule(() => this.set({ section: section.name, chord: chord.name }), time)
+    this.setAt(time, { section: section.name, chord: chord.name })
 
     this.sectionBar++
     if (this.sectionBar >= section.bars) {
@@ -405,12 +431,17 @@ class ZenEngine {
     for (let step = 0; step < 16; step++) {
       const t = at(step) + jitter()
       const kickP = light ? (step === 0 ? 0.8 : 0) : (kicks[step] ?? 0)
-      if (chance(kickP)) this.kick.triggerAttackRelease('D1', '8n', t, step === 0 ? 0.9 : 0.7)
+      if (chance(kickP)) {
+        const vel = step === 0 ? 0.9 : 0.7
+        this.kick.triggerAttackRelease('D1', '8n', t, vel)
+        this.beat('kick', t, { strength: light ? vel * 0.6 : vel })
+      }
 
       if (step === 4 || step === 12) {
         const vel = light ? 0.35 : rand(0.55, 0.7)
         this.snare.triggerAttackRelease('16n', t, vel)
         this.snareBody.triggerAttackRelease('G2', '32n', t, vel * 0.6)
+        this.beat('snare', t, { strength: vel })
       } else if ((step === 7 || step === 15 || (lastBar && step === 14)) && chance(lastBar ? 0.5 : 0.12)) {
         this.snare.triggerAttackRelease('32n', t, 0.18)
       }
@@ -440,6 +471,7 @@ class ZenEngine {
       const midi = fitToChord(track.keyPc, note.index, chord, step % 4 === 0, base)
       const t = at(step) + jitter()
       const dur = note.dur * s16
+      this.beat('note', t, { pitch: (midi - 48) / 40 })
       if (voice === 'koto') {
         if (chance(0.25)) this.koto.triggerAttack(toNote(midi - 2), t - 0.05)
         this.koto.triggerAttack(toNote(midi), t)
