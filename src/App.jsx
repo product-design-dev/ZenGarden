@@ -115,12 +115,15 @@ function App() {
                 onChange={(value) => engine.setLevel(layer.id, value)}
               />
             ))}
+            <p className="credits">
+              Piano samples: Salamander Grand Piano by Alexander Holm,{' '}
+              <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">
+                CC BY 3.0
+              </a>
+              , processed
+            </p>
           </GlassCard>
         </div>
-
-        <footer className="credits">
-          Piano: Salamander Grand Piano by Alexander Holm (CC BY 3.0)
-        </footer>
       </main>
     </>
   )

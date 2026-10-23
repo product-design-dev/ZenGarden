@@ -351,8 +351,12 @@
 }
 
 .credits {
-  margin-top: auto;
-  font-size: 0.75rem;
+  margin: 4px 0 0;
+  font-size: 0.7rem;
   color: var(--text-dim);
-  opacity: 0.7;
+  opacity: 0.55;
+}
+
+.credits a {
+  color: inherit;
 }
